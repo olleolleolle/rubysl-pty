@@ -506,7 +506,7 @@ pty_getpty(int argc, VALUE *argv, VALUE self)
   rb_ivar_set(rport, rb_intern("@path"), rb_str_new2(SlaveName));
 
   wport = rb_funcall(rb_cFile, rb_intern("new"), 2, INT2FIX(dup(info.fd)),
-      rb_str_new2("r"));
+      rb_str_new2("w"));
 
   rb_ivar_set(wport, rb_intern("@path"), rb_str_new2(SlaveName));
   rb_funcall(wport, rb_intern("sync="), 1, Qtrue);

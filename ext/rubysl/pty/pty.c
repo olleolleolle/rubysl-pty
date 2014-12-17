@@ -315,6 +315,9 @@ get_device_once(int *master, int *slave, char SlaveName[DEVICELEN], int nomesg, 
   if (ioctl(slavefd, I_PUSH, "ttcompat") == -1) goto error;
 #endif
 
+  rb_fd_fix_cloexec(masterfd);
+  rb_fd_fix_cloexec(slavefd);
+
   *master = masterfd;
   *slave = slavefd;
   strlcpy(SlaveName, slavedevice, DEVICELEN);
@@ -339,6 +342,10 @@ error:
     if (!fail) return -1;
       rb_raise(rb_eRuntimeError, "openpty() failed");
   }
+
+  rb_fd_fix_cloexec(*master);
+  rb_fd_fix_cloexec(*slave);
+
   if (no_mesg(SlaveName, nomesg) == -1) {
     if (!fail) return -1;
     rb_raise(rb_eRuntimeError, "can't chmod slave pty");
@@ -356,6 +363,10 @@ error:
   }
 
   *slave = open(name, O_RDWR);
+
+  rb_fd_fix_cloexec(*master);
+  rb_fd_fix_cloexec(*slave);
+
   /* error check? */
   strlcpy(SlaveName, name, DEVICELEN);
 
@@ -382,6 +393,10 @@ error:
   if(ioctl(slavefd, I_PUSH, "ldterm") == -1) goto error;
   ioctl(slavefd, I_PUSH, "ttcompat");
 #endif
+
+  rb_fd_fix_cloexec(masterfd);
+  rb_fd_fix_cloexec(slavefd);
+
   *master = masterfd;
   *slave = slavefd;
   strlcpy(SlaveName, slavedevice, DEVICELEN);
@@ -401,9 +416,11 @@ error:
     snprintf(MasterName, sizeof MasterName, MasterDevice, *p);
     if ((masterfd = open(MasterName,O_RDWR,0)) >= 0) {
       *master = masterfd;
+      rb_fd_fix_cloexec(*master);
       snprintf(SlaveName, DEVICELEN, SlaveDevice, *p);
       if ((slavefd = open(SlaveName,O_RDWR,0)) >= 0) {
         *slave = slavefd;
+        rb_fd_fix_cloexec(*slave);
         if (chown(SlaveName, getuid(), getgid()) != 0) goto error;
         if (chmod(SlaveName, nomesg ? 0600 : 0622) != 0) goto error;
         return 0;

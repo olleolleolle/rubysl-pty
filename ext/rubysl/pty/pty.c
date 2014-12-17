@@ -503,6 +503,51 @@ pty_getpty(int argc, VALUE *argv, VALUE self)
   return res;
 }
 
+static VALUE
+pty_close_pty(VALUE assoc)
+{
+  VALUE io;
+  int i;
+
+  for (i = 0; i < 2; i++) {
+    io = rb_ary_entry(assoc, i);
+    if (RB_TYPE_P(io, T_FILE) && 0 <= RFILE(io)->fptr->fd) {
+      rb_io_close(io);
+    }
+  }
+  return Qnil;
+}
+
+static VALUE
+pty_open(VALUE klass) {
+  int master_fd, slave_fd;
+  char slavename[DEVICELEN];
+  VALUE master_io, slave_file;
+  rb_io_t *master_fptr, *slave_fptr;
+  VALUE assoc;
+
+  getDevice(&master_fd, &slave_fd, slavename, 1);
+
+  master_io = rb_funcall(rb_cIO, rb_intern("new"), 2, INT2FIX(master_fd),
+      rb_str_new2("r+"));
+
+  rb_funcall(master_io, rb_intern("sync="), 1, Qtrue);
+
+  slave_file = rb_funcall(rb_cFile, rb_intern("new"), 2, INT2FIX(slave_fd),
+      rb_str_new2("r+"));
+
+  rb_ivar_set(slave_file, rb_intern("@path"),
+      rb_obj_freeze(rb_str_new2(slavename)));
+  rb_funcall(slave_file, rb_intern("sync="), 1, Qtrue);
+
+  assoc = rb_assoc_new(master_io, slave_file);
+
+  if (rb_block_given_p()) {
+    return rb_ensure(rb_yield, assoc, pty_close_pty, assoc);
+  }
+  return assoc;
+}
+
 /*
  * Document-class: PTY::ChildExited
  *
@@ -523,6 +568,7 @@ Init_pty()
   VALUE cPTY = rb_define_module("PTY");
   rb_define_module_function(cPTY, "getpty", pty_getpty, -1);
   rb_define_module_function(cPTY, "spawn", pty_getpty, -1);
+  rb_define_singleton_method(cPTY, "open", pty_open, 0);
   rb_define_singleton_method(cPTY, "__get_device__", pty_get_device, 0);
 
   eChildExited = rb_define_class_under(cPTY, "ChildExited", rb_eRuntimeError);

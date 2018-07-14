@@ -9,7 +9,9 @@
 #include	<sys/file.h>
 #include	<fcntl.h>
 #include	<errno.h>
+#ifdef HAVE_PWD_H
 #include	<pwd.h>
+#endif
 #ifdef HAVE_SYS_IOCTL_H
 #include	<sys/ioctl.h>
 #endif
@@ -181,7 +183,9 @@ establishShell(int argc, VALUE *argv, struct pty_info *info,
 {
   int i, master, slave;
   char *p, tmp, *getenv();
+#if HAVE_PWD_H
   struct passwd *pwent;
+#endif
   VALUE v;
   struct exec_info arg;
   int status;
@@ -193,10 +197,12 @@ establishShell(int argc, VALUE *argv, struct pty_info *info,
       shellname = p;
     }
     else {
+#if HAVE_PWD_H
       pwent = getpwuid(getuid());
       if (pwent && pwent->pw_shell)
         shellname = pwent->pw_shell;
       else
+#endif
         shellname = "/bin/sh";
     }
     v = rb_str_new2(shellname);
